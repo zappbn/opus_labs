@@ -65,6 +65,8 @@ interface {{ p.name }}
  shutdown
 {% elif p.channel_group is defined %}
  switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
  channel-group {{ p.channel_group }} mode active
  no shutdown
 {% elif p.mode == 'access' %}
