@@ -64,6 +64,25 @@
 Mgmt OOB на роутерах - routed port `Ethernet1/3` с прямым IP.
 Mgmt на свитчах - SVI `Vlan500` (порт `Ethernet1/3` в access VLAN 500). VLAN 1 не используется принципиально: на trunk-портах он native и идёт untagged.
 
+### VLAN'ы на свитчах
+
+| ID | Имя | Подсеть | Назначение |
+|---|---|---|---|
+| 10 | USERS | `10.{site}.10.0/24` | Пользовательские VPC (access-порты) |
+| 20 | SERVERS | `10.{site}.20.0/24` | Серверные (VLAN создан, access-портов пока нет) |
+| 250 | MGMT-INBAND | `10.{site}.250.0/24` | In-band SVI на свитчах (local, без gateway наружу) |
+| 500 | MGMT-OOB | `192.168.100.0/24` | OOB через access-порт `Ethernet1/3` в Cloud1 |
+
+VLAN 1 не используется (native на trunk'ах = риск). 10/20/250 - per-site (одинаковый ID, разные подсети у разных сайтов). VLAN 500 - глобально плоский для всей лабы.
+
+Trunk-линки между свитчами пропускают `allowed vlan 10,20,250`. VLAN 500 на trunk'ах не ходит - mgmt-OOB изолирован напрямую через Cloud1, не через trunk-инфраструктуру.
+
+**Port-channel (LACP):** параллельные линки между свитчами объединены в Po1 (`channel-group 1 mode active`):
+- SW4 ↔ SW5: `Ethernet0/2` + `Ethernet0/3`
+- SW9 ↔ SW10: `Ethernet0/0` + `Ethernet0/1`
+
+**STP:** `spanning-tree mode rapid-pvst` на всех 7 свитчах. На access-портах к VPC: `spanning-tree portfast` (быстрый up) + `spanning-tree bpduguard enable` (auto-shutdown если на access-порт прилетит BPDU).
+
 ### Intra-AS линки
 
 **Moscow (AS65001)**
@@ -164,7 +183,7 @@ host_vars/*.yml + inventory.yml
        +--> ansible-playbook apply.yml  ----> SSH + ios_config  ----> устройство
 ```
 
-Меняем строку в CSV - перегенерируем host_vars - применяешь через Ansible. Изменения видны через `git diff`, ничего не правится руками на устройстве. Один источник правды, одна точка применения, повторяемо.
+Меняем строку в CSV - перегенерируем host_vars - применяем через Ansible. Изменения видны через `git diff`, ничего не правится руками на устройстве. Один источник правды, одна точка применения, повторяемо.
 
 ---
 
