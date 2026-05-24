@@ -1,212 +1,170 @@
-# LAB01 — автоматизация Cisco в EVE-NG через Ansible
+# LAB01 — Cisco network automation в EVE-NG
 
-Лабораторка. Цель: править адресацию в табличке → Ansible катит на устройства.
+Учебная сетевая лаборатория OTUS. **Источник правды — две плоские CSV-таблицы**.
+Из них автоматически рендерятся конфиги Cisco-устройств (IOL в EVE-NG) и применяются
+через Ansible поверх SSH.
 
-> Главное правило: **никаких лишних абстракций**. Если что-то можно сделать одним
-> инструментом — делаем одним. Если файл повторяет работу другого — выкидываем.
-
----
-
-## 1. Что в итоге сделано
-
-- 4 роутера SPB (R16, R17, R18, R32) на IOL в EVE-NG
-- Доступны по SSH из EVE-хоста через OOB-сеть `192.168.100.0/24`
-- Ansible 6.x на EVE-хосте, ходит на роутеры, читает `host_vars/` и пушит конфиги из одного Jinja-шаблона
+Подробная топология и адресация — [`TOPOLOGY.md`](TOPOLOGY.md).
+Объяснение инструментов (telnet, expect, SSH, Ansible — зачем и когда) — [`WORKFLOW.md`](WORKFLOW.md).
 
 ---
 
-## 2. Структура
+## Состояние
+
+| Компонент | Статус |
+|---|---|
+| 18 роутеров bootstrap'нуты (loopback + mgmt + SSH) | ✅ |
+| OOB-сеть `192.168.100.0/24` между EVE-хостом и устройствами | ✅ |
+| Ansible 6.x на EVE-хосте, видит все 18 роутеров | ✅ |
+| Топология (23 P2P-линка) описана в `links.csv` | ✅ |
+| Конфиги рендерятся из шаблона (`render.py` / `apply.yml`) | ✅ |
+| **Apply P2P на устройства** | ⏳ следующий шаг |
+| Bootstrap 7 свитчей (SW2..SW29) | ⏳ в очереди |
+| Static routes для cross-site reachability | ⏳ после P2P |
+| OSPF / BGP | 🚧 за рамками текущей фазы |
+
+---
+
+## Структура
 
 ```
 otus_labs/
-├── devices.csv                      ← ИСТОЧНИК ПРАВДЫ. Плоская таблица.
-├── LAB01 - Адресация - Sheet1.csv   ← старая большая таблица — справка (шаблоны адресации, P2P, VLAN'ы)
-├── net.png                          ← схема топологии
-├── README.md                        ← этот файл
+├── devices.csv                ← источник правды: устройства
+├── links.csv                  ← источник правды: P2P-линки
 │
-├── csv2yaml.py                      ← devices.csv → host_vars/*.yml (DictReader, ~30 строк)
-├── render.py                        ← локальный рендерер конфигов (Windows, Python+Jinja2)
+├── csv2yaml.py                ← CSV → host_vars/*.yml + inventory.yml
+├── render.py                  ← локальный рендер конфигов (Windows)
 │
-├── ansible.cfg                      ← конфиг Ansible (inventory, callback, таймауты)
-├── inventory.yml                    ← какие хосты в каких группах
-├── group_vars/all.yml               ← общие переменные (mgmt_iface, креды, ssh-args)
-├── host_vars/R16.yml ... R32.yml    ← сгенерены csv2yaml.py — НЕ ПРАВИТЬ РУКАМИ
+├── ansible.cfg
+├── inventory.yml              ← сгенерирован
+├── group_vars/all.yml         ← общие переменные (mgmt_iface, ssh-args, креды)
+├── host_vars/                 ← сгенерированы (per-device)
 │
-├── templates/device.j2              ← один Jinja-шаблон, обслуживает и роутеры, и свитчи
-├── playbooks/
-│   └── apply.yml                    ← пушит через ios_config по SSH (для уже доступных)
-└── rendered/                        ← создаётся render.py; для первичной заливки
+├── templates/device.j2        ← один Jinja-шаблон для роутеров и свитчей
+├── playbooks/apply.yml        ← пушит конфиг через cisco.ios.ios_config
+│
+├── README.md                  ← этот файл
+├── TOPOLOGY.md                ← топология и адресный план
+├── WORKFLOW.md                ← объяснение инструментов и порядка действий
+│
+├── LAB01 - Адресация - Sheet1.csv   ← исходная таблица (справка для людей)
+└── net.png                          ← схема топологии
 ```
 
-### Где что запускается
-
-| Действие | Где | Чем |
-|---|---|---|
-| Правка `devices.csv` | Windows (или EVE через WinSCP — один файл) | блокнот / Sheets |
-| `csv2yaml.py` | Windows | `python csv2yaml.py` |
-| Рендер `.cfg` для console paste | **Windows** | `python render.py R12` |
-| Открыть `rendered/*.cfg`, скопировать | Windows | блокнот |
-| Paste в PuTTY-консоль | Windows | PuTTY |
-| `apply.yml` | EVE | `ansible-playbook playbooks/apply.yml` (нужен SSH к устройствам — это есть только у EVE-хоста) |
-
-EVE-shell нужен **только для `apply.yml`** — всё, что вокруг bootstrap'а нового устройства, делается на Винде.
-
-**Файлов мало. Каждый делает одно.** Никаких `bootstrap.j2` отдельно от `device.j2`,
-никаких двух выходных `.cfg` на устройство, никакого Python-генератора, повторяющего Ansible.
-
-### Формат `devices.csv`
-
-```csv
-hostname,kind,site,asn,loopback,mgmt_inband
-R12,router,Moscow,65001,10.1.255.12/32,10.1.250.12/24
-R17,router,SPB,65002,10.2.255.17/32,10.2.250.17/24
-SW9,switch,SPB,65002,,10.2.250.109/24
-SW10,switch,SPB,65002,,10.2.250.110/24
-```
-
-Одна большая плоская таблица. **Никаких заголовков секций, никаких пустых строк.** Парсер
-тривиальный: `csv.DictReader`. Добавишь колонку — добавится переменная в host_vars,
-никаких регулярок переписывать.
-
-**Колонки:**
-- `kind` — `router` или `switch`. Шаблон ветвится по этому полю.
-- `loopback` — только для `router`. У switch — пусто.
-- `mgmt_inband` — in-band mgmt-адрес внутри сайта (для справки/будущих in-band задач). Текущий bootstrap его не использует.
-
-**OOB-адрес** (`192.168.100.X`) вычисляется из числового суффикса имени:
-`R12` → `.12`, `SW9` → `.9`, `SW10` → `.10`. Отдельной колонкой не хранится.
+**Руками редактируются только `devices.csv` и `links.csv`.** Всё остальное (`host_vars/`,
+`inventory.yml`, `rendered/`) генерируется из них.
 
 ---
 
-## 3. Ключевые решения
+## Pipeline
 
-| Вопрос | Что выбрали | Почему |
-|---|---|---|
-| Где запускать Ansible? | На EVE-хосте | WSL отключён ради VMware Player; EVE-хост уже на всех `pnetX`-бриджах, видит лабу нативно. |
-| Mgmt-сеть для Ansible | OOB `192.168.100.0/24` (R{ID} → .{ID}) | In-band per-site VLAN'ы требуют, чтобы L3-связность лабы уже работала — а мы её и собираемся настраивать. Курица/яйцо. |
-| Mgmt-интерфейс | `Ethernet1/3` на всех | IOL: интерфейсы группами по 4. Добавили вторую portgroup → mgmt всегда на последнем порту, не "съезжает" при добавлении лабораторных линков. |
-| Стыковка mgmt с EVE-хостом | Cloud1 (`pnet1`) | `Cloud0` = домашняя сеть (грязно). `Cloud1` = внутренний бридж EVE; EVE-хост его видит, наружу не торчит. |
-| Промежуточный bridge-свитч | Отказались | EVE-NG не даёт соединить Network↔Network (bridge↔cloud). Cloud сам = L2-сегмент, втыкаем роутеры прямо в него. |
-| Креды на vty | `admin/cisco`, privilege 15 через user, `login local` | Минимум, который циска принимает. Консоль (`line con 0`) не трогаем — там доступ открыт как было. |
-| Telnet vs SSH | SSH (telnet оставлен fallback) | Современный Ansible (`ansible.netcommon.network_cli`) умеет только SSH. |
-| Версия Ansible | 6.x (core 2.13) через pip | Apt'овская 2.9 — EOL. Core 2.14+ требует Python 3.9+, у EVE 3.8. 6.x — последний совместимый. |
+```
+   devices.csv  +  links.csv
+            │
+            │  python csv2yaml.py
+            ▼
+host_vars/*.yml + inventory.yml
+            │
+            ├──► python render.py R##  ──►  rendered/R##.cfg  ──►  console paste (для нового устройства)
+            │
+            └──► ansible-playbook apply.yml  ──►  SSH → ios_config  ──►  running устройство
+```
 
 ---
 
-## 4. Как пользоваться
+## Адресный план (краткая выжимка)
 
-### Когда правишь CSV (на Windows)
+| Назначение | Формула | Пример |
+|---|---|---|
+| Лупбэк роутера | `10.{site}.255.{id}/32` | R12 → `10.1.255.12/32` |
+| In-band mgmt | `10.{site}.250.{id}/24` | R12 → `10.1.250.12/24` |
+| OOB mgmt | `192.168.100.{id}/24` | R12 → `192.168.100.12` |
+| Intra-AS P2P | `10.{site}.254.x/31` | `10.1.254.0/31`, `10.1.254.2/31`, ... |
+| Inter-AS P2P | `172.16.0.x/31` | `172.16.0.0/31`, `172.16.0.2/31`, ... |
+
+Полная карта устройств, линков и интерфейсов — в [`TOPOLOGY.md`](TOPOLOGY.md).
+
+---
+
+## Окружение
+
+**Windows (рабочее место):**
+- Python 3.8+
+- `pip install pyyaml jinja2`
+- PuTTY (или SecureCRT) для консольной связи с устройствами в EVE-NG
+- WinSCP для синхронизации файлов с EVE-хостом
+
+**EVE-NG host (Ubuntu, где живёт Ansible):**
+- Ansible 6.x (через pip; apt'овский 2.9 — EOL): `pip3 install "ansible>=6.0,<7.0"`
+- `paramiko<3.0`: `pip3 install "paramiko<3.0"` (3.x отрезает `ssh-rsa`, нужный для старых IOL)
+- Коллекции `cisco.ios` и `ansible.netcommon` (приходят с Ansible 6.x)
+
+---
+
+## Использование
+
+### Регенерация из источников правды
 
 ```cmd
-python csv2yaml.py                                  # обновить host_vars
+python csv2yaml.py        # после правки devices.csv или links.csv
 ```
 
-Если поменялась адресация на уже-настроенном устройстве — дальше `apply.yml` донесёт.
+### Bootstrap нового устройства (когда SSH ещё нет)
 
-### Когда хочешь увидеть, что Ansible собирается катить (на EVE)
-
-```bash
-ansible-playbook playbooks/apply.yml --check --diff
-```
-
-Покажет diff между running-config и желаемым. Ничего не применяет.
-
-### Когда хочешь применить (на EVE)
-
-```bash
-ansible-playbook playbooks/apply.yml --limit R17     # на одного для проверки
-ansible-playbook playbooks/apply.yml                 # на всю группу
-```
-
-### Когда заводишь НОВОЕ устройство (bootstrap, разово)
-
-Подходит и для роутеров, и для свитчей — разница только в шаблоне (он ветвится по `kind`).
-
-Делается **один раз** на устройство. Дальше — только Ansible.
-
-**1. В таблице (Windows):**
-- Добавь строку в `devices.csv` (укажи `kind: router` или `switch`, у switch колонка `loopback` пустая)
-- Если новый сайт — открой `csv2yaml.py`, добавь сайт в `TARGET_SITES`
-- `python csv2yaml.py` → появится `host_vars/<hostname>.yml`
-
-**2. В EVE-NG GUI:**
-- Stop ноды
-- Edit Node → **Ethernet portgroups = 2** (чтобы появился `Ethernet1/3`)
-- Подсоедини `Ethernet1/3` к `mgmt-cloud` (Cloud1)
-- Start ноды
-
-**3. Сгенерь конфиг для console paste (Windows):**
 ```cmd
-python render.py R12
+python render.py R12      # → rendered/R12.cfg
 ```
-Появится `rendered/R12.cfg`.
 
-**4. PuTTY-консоль ноды (Windows):**
-- Ответь `no` на "initial configuration dialog?"
-- `enable` → `configure terminal`
-- **Правый клик мыши** — паста содержимого `rendered/R12.cfg`
-- `crypto key generate rsa modulus 2048` (на IOL/IOU проходит и в config-mode)
-- `end` → `wr`
+Откройте PuTTY-консоль R12 в EVE-NG → `enable` → `conf t` → правый клик (paste rendered/R12.cfg) →
+`crypto key generate rsa modulus 2048` → `end` → `wr`. После этого устройство доступно по SSH.
 
-**5. Добавь в inventory (Windows):**
-- Открой `inventory.yml`, впиши хост в нужную группу
+### Plan / Apply через Ansible
 
-**6. Проверь с EVE-хоста:**
 ```bash
-ssh -oKexAlgorithms=+diffie-hellman-group14-sha1 \
-    -oHostKeyAlgorithms=+ssh-rsa \
-    admin@192.168.100.##
-```
-Если влетел в `R##` / `SW##` — bootstrap завершён.
+# на EVE-хосте
+cd /root/otus_labs
 
-**7. Дальше Ansible (EVE):**
-```bash
-ansible-playbook playbooks/apply.yml --limit R## --check --diff   # plan
-ansible-playbook playbooks/apply.yml --limit R##                  # apply
+ansible-playbook playbooks/apply.yml --check --diff              # plan
+ansible-playbook playbooks/apply.yml --limit R17 --check --diff  # plan на одного
+ansible-playbook playbooks/apply.yml --limit spb                 # apply на сайт
+ansible-playbook playbooks/apply.yml                             # apply на всё
 ```
 
-> Bootstrap нельзя автоматизировать полностью — у нового устройства нет IP, SSH и юзера, ходить туда некуда кроме консоли. **Это неизбежная стоимость одного раза.** Дальше Ansible.
+Inventory сгенерирован с группами по сайту (`moscow`, `spb`, `triada`, ...) и по типу
+(`routers`, `switches`), любая комбинация работает для `--limit`.
 
 ---
 
-## 5. Что слетит после ребута EVE
+## Архитектурные решения
 
-`pnet1` теряет IP `192.168.100.1/24`. Пока — лечится одной командой:
-```bash
-ip addr add 192.168.100.1/24 dev pnet1
-```
-Когда захочешь персистентно — пропишем в `/etc/network/interfaces` (отложили).
-
----
-
-## 6. Гайд по тому, как это всё было собрано (история проекта)
-
-Хронология действий — для понимания, **почему** структура такая. Можно пропустить если не интересно.
-
-1. **CSV → host_vars.** Изначально парсили большую `LAB01 - Адресация...csv` со свободной структурой (секции, заголовки) через regex. Хрупко: любая правка в Sheets ломала парсер.
-2. **EVE топология.** В лабе добавили ноду `Cloud1`. У каждого роутера в *Edit Node* увеличили Ethernet portgroups до 2 (появился `Ethernet1/3`). Соединили каждый R с Cloud1 через `e1/3`.
-3. **Первичная заливка.** HTML5-консоль EVE не даёт paste — переключились на PuTTY (запустили `C:\Program Files\EVE-NG\win10_64bit_putty.reg`). В PuTTY paste = правый клик. На каждом из 4 роутеров: `enable` → `conf t` → паста → `crypto key generate rsa modulus 2048` → `wr`.
-4. **Mgmt-сеть EVE.** SSH на EVE-хост (`ssh root@<eve-ip>`, пароль `eve`). Дали `pnet1` IP: `ip addr add 192.168.100.1/24 dev pnet1`. Пингануло всех R16/17/18/32.
-5. **SSH с EVE на роутеры.** Современный OpenSSH ругается на устаревший KEX/HostKey IOL'а. Лечится: `ssh -oKexAlgorithms=+diffie-hellman-group14-sha1 -oHostKeyAlgorithms=+ssh-rsa admin@192.168.100.17`. Эти опции вписаны в `ansible_ssh_common_args`.
-6. **Ansible.** Apt'овская 2.9 — EOL → снос. Pip-овая 6.x (core 2.13) — подходит под Python 3.8. Дополнительно `paramiko<3.0` (3.x по умолчанию отрезает ssh-rsa). Удалили `/root/.ansible/collections` (там лежали слишком новые версии, требующие Ansible 2.15+).
-7. **Первый плейбук.** Запустили `ios_command` → все 4 хоста ответили. End-to-end pipeline работает.
-8. **Чистка №1.** Снесли промежуточные сущности: отдельный `bootstrap.j2`, два cfg-файла на роутер, отдельный python-рендер. Заменили на: один `device.j2` + Ansible `template`/`ios_config`. Один источник правды, одна точка применения.
-9. **Чистка №2 (CSV).** Большая таблица оказалась хрупкой для парсинга. Сделали отдельный `devices.csv` — одна плоская таблица, фиксированные колонки, `csv.DictReader`. Парсер ужался с 80 строк до 25, не ломается от изменений в Sheets. Старая таблица оставлена для людей как справка.
+| Вопрос | Решение | Почему |
+|---|---|---|
+| Где живёт Ansible? | На EVE-хосте | WSL отключён под VMware Player; EVE-хост уже в L2 со всеми `pnetX`-бриджами лабы. |
+| Mgmt-сеть для автоматизации | OOB `192.168.100.0/24` (`R{id}` → `.{id}`) | In-band per-site VLAN'ы требуют рабочей L3-связности лабы — а мы её и собираемся настраивать. Курица-яйцо. |
+| Mgmt-интерфейс | `Ethernet1/3` на всех роутерах | IOL: интерфейсы группами по 4. Вторая portgroup → mgmt всегда на крайнем порту, не "съезжает" при добавлении лабораторных линков. |
+| Соединение mgmt с EVE-хостом | `Cloud1` (`pnet1`) | `Cloud0` = домашняя сеть (грязно). `Cloud1` = внутренний бридж EVE; EVE-хост его видит, наружу не торчит. |
+| Telnet vs SSH | SSH (telnet — fallback) | Современный Ansible (`ansible.netcommon.network_cli`) работает только по SSH. |
+| Версия Ansible | 6.x (core 2.13), через pip | apt'овская 2.9 — EOL. core 2.14+ требует Python 3.9+, у EVE 3.8. 6.x — последний совместимый. |
+| `paramiko<3.0` | Обязательно | 3.x по умолчанию отрезает `ssh-rsa`, который только и поддерживает IOL 15.4. |
+| SSH-опции для IOL | `KexAlgorithms=+diffie-hellman-group14-sha1`, `HostKeyAlgorithms=+ssh-rsa` | IOL 15.4 знает только устаревший KEX/HostKey. Опции в `ansible_ssh_common_args` глобально. |
 
 ---
 
-## 7. Что важно помнить про лабу vs прод
+## Лаба vs прод
 
-- Креды в открытом виде в `group_vars/all.yml` — нормально для лабы, в проде использовать Vault или env.
-- `host_key_checking = False` и `StrictHostKeyChecking=no` — нормально для лабы, в проде проверять fingerprints.
-- IOL 15.4 поддерживает только устаревший KEX/HostKey — в проде на современном оборудовании этих опций SSH **не нужно**.
+- Креды в `group_vars/all.yml` — открытым текстом. В проде — `ansible-vault` или внешний secret store.
+- `host_key_checking = False` — приемлемо для лабы. В проде — проверять fingerprints.
+- Устаревшие KEX/HostKey-опции нужны только для IOL 15.4; на современном оборудовании не используются.
+- `transport input ssh telnet` — telnet оставлен как fallback для отладки. В проде telnet выключают.
 
 ---
 
-## 8. Что дальше
+## Дальнейшие шаги
 
-1. **Остальные сайты.** Bootstrap-процедура из секции 4 — для каждого нового роутера. Начинать лучше с Moscow (R12-R20).
-2. **`ios_config` → declarative модули.** Текущий `apply.yml` показывает "вечный changed" на 7 косметических строках (`username secret`, `no shutdown` и т.п.) — это известная слабость `ios_config`. Перевести на `cisco.ios.ios_user` / `ios_interfaces` / `ios_l3_interfaces` — получим настоящую идемпотентность. (Задача #8 в трекере.)
-3. **P2P-интерфейсы.** Добавить в `devices.csv` или в отдельный `links.csv` колонки `device_a, iface_a, device_b, iface_b, network`. Расширить `device.j2` или сделать отдельный шаблон.
-4. **Sync файлов Windows ↔ EVE.** Сейчас правишь на Windows и копируешь через WinSCP. Если надоест — git push/pull. Или редактирование прямо на EVE через WinSCP (двойной клик по файлу).
-5. **Персистентность `pnet1`** через `/etc/network/interfaces` на EVE — чтобы IP не слетал после ребута VM.
+См. [Out of scope в PR](https://github.com/zappbn/opus_labs/pulls) и план в `TOPOLOGY.md`.
+
+1. Apply P2P-конфигов на все 18 роутеров с проверкой ping между лупбэками.
+2. Static routes для cross-site reachability.
+3. Bootstrap 7 свитчей по той же процедуре.
+4. Перевод `ios_config` → declarative-модули (`ios_user`, `ios_interfaces`, `ios_l3_interfaces`) для настоящей идемпотентности.
+5. OSPF / BGP, когда курс дойдёт.

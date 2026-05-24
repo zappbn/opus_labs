@@ -33,3 +33,6 @@ EVE-NG-Win-Client-Pack-*.exe
 # --- Локальные оверрайды Ansible ---
 ansible.cfg.local
 inventory.local.yml
+
+# --- Личный журнал работ (история, заметки, нюансы) — не для репо ---
+LOGBOOK.md
