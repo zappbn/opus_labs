@@ -9,12 +9,19 @@
     python render.py            # все устройства из host_vars/
     python render.py R12        # только R12
     python render.py R12 R13    # только эти
+    python render.py SW*        # все свитчи (glob-паттерн)
+    python render.py R1*        # R12..R19 (но также R1, R10, ... если есть)
+
+Глобы матчатся через fnmatch. На Windows cmd/PowerShell не разворачивают
+глобы сами — паттерн дойдёт до Python как литерал. В Git Bash возможно
+придётся писать в кавычках: python render.py "SW*"
 
 Не требует Ansible. Не лезет в сеть. Безопасно гонять на Винде.
 
 Зависимости:
     pip install pyyaml jinja2
 """
+import fnmatch
 import sys
 from pathlib import Path
 
@@ -38,13 +45,27 @@ def main():
     OUT_DIR.mkdir(exist_ok=True)
     group_vars = yaml.safe_load(GROUP_VARS.read_text(encoding="utf-8")) or {}
     template = JINJA.from_string(TEMPLATE.read_text(encoding="utf-8"))
-    targets = set(sys.argv[1:])  # пусто = всё
+
+    all_hosts = sorted(p.stem for p in HOST_VARS_DIR.glob("*.yml"))
+    patterns = sys.argv[1:]
+
+    if patterns:
+        targets = set()
+        for pat in patterns:
+            matches = fnmatch.filter(all_hosts, pat)
+            if matches:
+                targets.update(matches)
+            else:
+                print(f"  ! паттерн '{pat}' ни с чем не совпал")
+        if not targets:
+            print("\nНечего рендерить.")
+            return
+    else:
+        targets = set(all_hosts)
 
     rendered = 0
-    for yml_file in sorted(HOST_VARS_DIR.glob("*.yml")):
-        hostname = yml_file.stem
-        if targets and hostname not in targets:
-            continue
+    for hostname in sorted(targets):
+        yml_file = HOST_VARS_DIR / f"{hostname}.yml"
         host_vars = yaml.safe_load(yml_file.read_text(encoding="utf-8")) or {}
         vars = {**group_vars, **host_vars, "inventory_hostname": hostname}
         out_path = OUT_DIR / f"{hostname}.cfg"
@@ -52,10 +73,6 @@ def main():
         print(f"  {hostname} -> {out_path}")
         rendered += 1
 
-    if targets and rendered < len(targets):
-        missed = targets - {p.stem for p in HOST_VARS_DIR.glob('*.yml')}
-        if missed:
-            print(f"\n! не нашёл host_vars для: {sorted(missed)}")
     print(f"\nГотово, конфигов: {rendered}")
 
 
