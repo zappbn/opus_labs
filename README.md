@@ -144,15 +144,16 @@ Lamas, Kitorn, Cherepovets - по одному роутеру, intra-AS нет. 
 
 ## 2. Управление через Ansible
 
-Всё, что выше, описывается двумя плоскими таблицами:
+Всё, что выше, описывается тремя плоскими таблицами:
 
 - `devices.csv` - устройства (hostname, kind, site, asn, loopback, mgmt_inband)
-- `links.csv` - P2P-линки (device_a, iface_a, device_b, iface_b, network)
+- `links.csv` - L3 P2P-линки между роутерами (device_a, iface_a, device_b, iface_b, network)
+- `switch_ports.csv` - L2-порты свитчей (device, iface, mode, vlan, allowed_vlans, channel_group, description)
 
 Пайплайн:
 
 ```
-devices.csv + links.csv
+devices.csv + links.csv + switch_ports.csv
        |
        |  python csv2yaml.py
        v
