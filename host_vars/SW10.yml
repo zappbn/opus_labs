@@ -12,9 +12,11 @@ port_channels:
 switch_ports:
   - name: Ethernet0/0
     channel_group: 1
+    allowed_vlans: "10,20,250"
     description: "to-SW9-lag1"
   - name: Ethernet0/1
     channel_group: 1
+    allowed_vlans: "10,20,250"
     description: "to-SW9-lag1"
   - name: Ethernet0/2
     mode: access

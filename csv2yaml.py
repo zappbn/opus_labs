@@ -191,6 +191,8 @@ def write_host_vars(rows, links_by_host, switch_data):
                     sw_yml += f"  - name: {p['name']}\n"
                     if "channel_group" in p:
                         sw_yml += f"    channel_group: {p['channel_group']}\n"
+                        if p.get("allowed_vlans"):
+                            sw_yml += f"    allowed_vlans: \"{p['allowed_vlans']}\"\n"
                     else:
                         sw_yml += f"    mode: {p['mode']}\n"
                         if p["mode"] == "access" and p.get("vlan"):
