@@ -1,7 +1,18 @@
-# Generated from devices.csv — не править руками
+# Generated from devices.csv + links.csv — не править руками
 kind: router
 site: SPB
 asn: 65002
 loopback_ip: 10.2.255.16
 mgmt_inband_ip: 10.2.250.16
 ansible_host: 192.168.100.16
+p2p_interfaces:
+  - name: Ethernet0/1
+    ip: 10.2.254.0
+    mask: 255.255.255.254
+    peer: R18
+    network: 10.2.254.0/31
+  - name: Ethernet0/3
+    ip: 10.2.254.4
+    mask: 255.255.255.254
+    peer: R32
+    network: 10.2.254.4/31

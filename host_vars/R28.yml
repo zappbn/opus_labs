@@ -1,7 +1,18 @@
-# Generated from devices.csv — не править руками
+# Generated from devices.csv + links.csv — не править руками
 kind: router
 site: Vologda
 asn: 65007
 loopback_ip: 10.7.255.28
 mgmt_inband_ip: 10.7.250.28
 ansible_host: 192.168.100.28
+p2p_interfaces:
+  - name: Ethernet0/0
+    ip: 172.16.0.13
+    mask: 255.255.255.254
+    peer: R26
+    network: 172.16.0.12/31
+  - name: Ethernet0/1
+    ip: 172.16.0.15
+    mask: 255.255.255.254
+    peer: R25
+    network: 172.16.0.14/31

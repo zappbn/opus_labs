@@ -17,6 +17,13 @@ interface {{ mgmt_iface }}
  description MGMT-OOB
  ip address {{ ansible_host }} {{ mgmt_netmask }}
  no shutdown
+{% for iface in p2p_interfaces | default([]) %}
+!
+interface {{ iface.name }}
+ description To {{ iface.peer }}
+ ip address {{ iface.ip }} {{ iface.mask }}
+ no shutdown
+{% endfor %}
 {% else %}
 interface Vlan1
  description MGMT-OOB

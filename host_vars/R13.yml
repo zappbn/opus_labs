@@ -1,7 +1,18 @@
-# Generated from devices.csv — не править руками
+# Generated from devices.csv + links.csv — не править руками
 kind: router
 site: Moscow
 asn: 65001
 loopback_ip: 10.1.255.13
 mgmt_inband_ip: 10.1.250.13
 ansible_host: 192.168.100.13
+p2p_interfaces:
+  - name: Ethernet0/2
+    ip: 10.1.254.6
+    mask: 255.255.255.254
+    peer: R15
+    network: 10.1.254.6/31
+  - name: Ethernet0/3
+    ip: 10.1.254.4
+    mask: 255.255.255.254
+    peer: R14
+    network: 10.1.254.4/31

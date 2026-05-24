@@ -1,7 +1,23 @@
-# Generated from devices.csv — не править руками
+# Generated from devices.csv + links.csv — не править руками
 kind: router
 site: Triada
 asn: 65005
 loopback_ip: 10.5.255.23
 mgmt_inband_ip: 10.5.250.23
 ansible_host: 192.168.100.23
+p2p_interfaces:
+  - name: Ethernet0/0
+    ip: 172.16.0.7
+    mask: 255.255.255.254
+    peer: R22
+    network: 172.16.0.6/31
+  - name: Ethernet0/1
+    ip: 10.5.254.2
+    mask: 255.255.255.254
+    peer: R25
+    network: 10.5.254.2/31
+  - name: Ethernet0/2
+    ip: 10.5.254.0
+    mask: 255.255.255.254
+    peer: R24
+    network: 10.5.254.0/31

@@ -1,7 +1,23 @@
-# Generated from devices.csv — не править руками
+# Generated from devices.csv + links.csv — не править руками
 kind: router
 site: Lamas
 asn: 65003
 loopback_ip: 10.3.255.21
 mgmt_inband_ip: 10.3.250.21
 ansible_host: 192.168.100.21
+p2p_interfaces:
+  - name: Ethernet0/0
+    ip: 172.16.0.3
+    mask: 255.255.255.254
+    peer: R15
+    network: 172.16.0.2/31
+  - name: Ethernet0/1
+    ip: 172.16.0.4
+    mask: 255.255.255.254
+    peer: R22
+    network: 172.16.0.4/31
+  - name: Ethernet0/2
+    ip: 172.16.0.8
+    mask: 255.255.255.254
+    peer: R24
+    network: 172.16.0.8/31

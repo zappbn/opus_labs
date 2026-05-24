@@ -1,7 +1,13 @@
-# Generated from devices.csv — не править руками
+# Generated from devices.csv + links.csv — не править руками
 kind: router
 site: Cherepovets
 asn: 65006
 loopback_ip: 10.6.255.27
 mgmt_inband_ip: 10.6.250.27
 ansible_host: 192.168.100.27
+p2p_interfaces:
+  - name: Ethernet0/0
+    ip: 172.16.0.11
+    mask: 255.255.255.254
+    peer: R25
+    network: 172.16.0.10/31
