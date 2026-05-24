@@ -46,6 +46,9 @@ interface {{ mgmt_iface }}
 {% for pc in port_channels | default([]) %}
 interface Port-channel{{ pc.id }}
  description {{ pc.description }}
+{% if pc.mode == 'trunk' %}
+ switchport trunk encapsulation dot1q
+{% endif %}
  switchport mode {{ pc.mode }}
 {% if pc.mode == 'trunk' and pc.allowed_vlans %}
  switchport trunk allowed vlan {{ pc.allowed_vlans }}
@@ -67,6 +70,7 @@ interface {{ p.name }}
  spanning-tree bpduguard enable
  no shutdown
 {% elif p.mode == 'trunk' %}
+ switchport trunk encapsulation dot1q
  switchport mode trunk
  switchport trunk allowed vlan {{ p.allowed_vlans }}
  no shutdown
