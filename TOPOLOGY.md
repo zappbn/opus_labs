@@ -68,7 +68,8 @@
 | SW29 | Vologda | — | 192.168.100.29 | 10.7.250.129 |
 
 > Mgmt OOB у всех на `Ethernet1/3`.
-> In-band Mgmt на свитчах — через SVI `Vlan1`.
+> Mgmt на свитчах — через SVI `Vlan500` (access-порт `Ethernet1/3` тегирован в VLAN 500).
+> VLAN 1 не используем под mgmt принципиально — на trunk-портах он native и идёт untagged, классическая дыра.
 
 ---
 

@@ -25,7 +25,16 @@ interface {{ iface.name }}
  no shutdown
 {% endfor %}
 {% else %}
-interface Vlan1
+vlan {{ mgmt_vlan }}
+ name MGMT
+!
+interface {{ mgmt_iface }}
+ description MGMT-uplink to Cloud1
+ switchport mode access
+ switchport access vlan {{ mgmt_vlan }}
+ no shutdown
+!
+interface Vlan{{ mgmt_vlan }}
  description MGMT-OOB
  ip address {{ ansible_host }} {{ mgmt_netmask }}
  no shutdown
