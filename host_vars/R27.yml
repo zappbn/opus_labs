@@ -1,0 +1,7 @@
+# Generated from devices.csv — не править руками
+kind: router
+site: Cherepovets
+asn: 65006
+loopback_ip: 10.6.255.27
+mgmt_inband_ip: 10.6.250.27
+ansible_host: 192.168.100.27

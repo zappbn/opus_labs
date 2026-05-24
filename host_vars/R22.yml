@@ -1,0 +1,7 @@
+# Generated from devices.csv — не править руками
+kind: router
+site: Kitorn
+asn: 65004
+loopback_ip: 10.4.255.22
+mgmt_inband_ip: 10.4.250.22
+ansible_host: 192.168.100.22

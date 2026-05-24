@@ -1,0 +1,25 @@
+# Глобальные переменные для всех устройств.
+# Читаются Ansible'ом + используются Jinja-шаблоном templates/device.j2.
+
+# --- Платформа ---
+ansible_network_os: cisco.ios.ios
+ansible_connection: network_cli
+ansible_user: admin           # локальный пользователь на роутере
+ansible_password: cisco
+ansible_become: false         # privilege 15 даём через username, отдельный enable не нужен
+# Старые IOL'ы умеют только legacy KEX/HostKey — пробрасываем их клиенту.
+# Заодно отключаем строгую проверку host key (лаба).
+ansible_ssh_common_args: >-
+  -o KexAlgorithms=+diffie-hellman-group14-sha1
+  -o HostKeyAlgorithms=+ssh-rsa
+  -o StrictHostKeyChecking=no
+  -o UserKnownHostsFile=/dev/null
+
+# --- Mgmt OOB-сеть ---
+mgmt_iface: Ethernet1/3
+mgmt_subnet_prefix: 192.168.100   # OOB-подсеть: 192.168.100.0/24
+mgmt_netmask: 255.255.255.0
+mgmt_gateway: 192.168.100.1       # IP, который дадим EVE-хосту на pnet1
+
+# --- Креды (минимум для лабы) ---
+vty_password: cisco

@@ -1,0 +1,7 @@
+# Generated from devices.csv — не править руками
+kind: router
+site: Moscow
+asn: 65001
+loopback_ip: 10.1.255.20
+mgmt_inband_ip: 10.1.250.20
+ansible_host: 192.168.100.20

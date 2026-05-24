@@ -1,0 +1,35 @@
+# --- Транзитные артефакты (генерятся из источников, в git не нужны) ---
+rendered/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# --- IDE / редакторы ---
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# --- ОС-овский мусор ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Большие бинарники (не код) ---
+EVE-NG-Win-Client-Pack-*.exe
+*.unl
+*.bin
+
+# --- Secrets (для лабы пока не используем, но на будущее) ---
+# Если решишь шифровать пароли через ansible-vault — vault-файлы и пароль НЕ коммитить:
+.vault_pass
+*.vault
+
+# --- Локальные оверрайды Ansible ---
+ansible.cfg.local
+inventory.local.yml

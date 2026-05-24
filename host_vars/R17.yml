@@ -1,0 +1,7 @@
+# Generated from devices.csv — не править руками
+kind: router
+site: SPB
+asn: 65002
+loopback_ip: 10.2.255.17
+mgmt_inband_ip: 10.2.250.17
+ansible_host: 192.168.100.17

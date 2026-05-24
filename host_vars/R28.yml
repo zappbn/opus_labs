@@ -1,0 +1,7 @@
+# Generated from devices.csv — не править руками
+kind: router
+site: Vologda
+asn: 65007
+loopback_ip: 10.7.255.28
+mgmt_inband_ip: 10.7.250.28
+ansible_host: 192.168.100.28

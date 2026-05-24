@@ -1,0 +1,34 @@
+hostname {{ inventory_hostname }}
+!
+no ip domain-lookup
+ip domain name lab.local
+{% if kind == 'router' %}
+ip routing
+{% endif %}
+!
+username admin privilege 15 secret {{ vty_password }}
+!
+{% if kind == 'router' %}
+interface Loopback0
+ description Router-ID
+ ip address {{ loopback_ip }} 255.255.255.255
+!
+interface {{ mgmt_iface }}
+ description MGMT-OOB
+ ip address {{ ansible_host }} {{ mgmt_netmask }}
+ no shutdown
+{% else %}
+interface Vlan1
+ description MGMT-OOB
+ ip address {{ ansible_host }} {{ mgmt_netmask }}
+ no shutdown
+!
+ip default-gateway {{ mgmt_gateway }}
+{% endif %}
+!
+ip ssh version 2
+ip ssh time-out 60
+!
+line vty 0 4
+ login local
+ transport input ssh telnet

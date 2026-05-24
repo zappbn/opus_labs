@@ -1,0 +1,16 @@
+---
+# Пушит конфиг на устройство через ios_config (по SSH).
+# Идемпотентно: применяет только то, что отличается от running-config.
+#
+# Запуск:
+#   ansible-playbook playbooks/apply.yml --check --diff      # plan-режим
+#   ansible-playbook playbooks/apply.yml --limit R17         # один хост
+#   ansible-playbook playbooks/apply.yml                     # всё применить
+- name: Apply device config via Ansible
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Push config from device.j2
+      cisco.ios.ios_config:
+        src: "{{ playbook_dir }}/../templates/device.j2"
+        save_when: modified

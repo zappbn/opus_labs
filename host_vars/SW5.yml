@@ -1,0 +1,6 @@
+# Generated from devices.csv — не править руками
+kind: switch
+site: Moscow
+asn: 65001
+mgmt_inband_ip: 10.1.250.105
+ansible_host: 192.168.100.5

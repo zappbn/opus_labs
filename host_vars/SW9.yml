@@ -1,0 +1,6 @@
+# Generated from devices.csv — не править руками
+kind: switch
+site: SPB
+asn: 65002
+mgmt_inband_ip: 10.2.250.109
+ansible_host: 192.168.100.9

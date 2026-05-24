@@ -1,0 +1,7 @@
+# Generated from devices.csv — не править руками
+kind: router
+site: Triada
+asn: 65005
+loopback_ip: 10.5.255.23
+mgmt_inband_ip: 10.5.250.23
+ansible_host: 192.168.100.23
