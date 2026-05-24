@@ -50,8 +50,11 @@ interface Port-channel{{ pc.id }}
  switchport trunk encapsulation dot1q
 {% endif %}
  switchport mode {{ pc.mode }}
-{% if pc.mode == 'trunk' and pc.allowed_vlans %}
+{% if pc.mode == 'trunk' %}
+ switchport nonegotiate
+{% if pc.allowed_vlans %}
  switchport trunk allowed vlan {{ pc.allowed_vlans }}
+{% endif %}
 {% endif %}
 !
 {% endfor %}
@@ -73,6 +76,7 @@ interface {{ p.name }}
 {% elif p.mode == 'trunk' %}
  switchport trunk encapsulation dot1q
  switchport mode trunk
+ switchport nonegotiate
  switchport trunk allowed vlan {{ p.allowed_vlans }}
  no shutdown
 {% endif %}
