@@ -2,6 +2,7 @@ hostname {{ inventory_hostname }}
 !
 no ip domain-lookup
 ip domain name lab.local
+clock timezone {{ timezone_name }} {{ timezone_offset }}
 {% if kind == 'router' %}
 ip routing
 {% endif %}

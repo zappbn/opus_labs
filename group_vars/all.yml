@@ -25,3 +25,7 @@ mgmt_vlan: 500                    # для свитчей: VLAN под mgmt SVI 
 
 # --- Креды (минимум для лабы) ---
 vty_password: cisco
+
+# --- Часовой пояс (только display, реальное время - через NTP отдельно) ---
+timezone_name: MSK
+timezone_offset: 3
