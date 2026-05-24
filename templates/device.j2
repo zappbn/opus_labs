@@ -67,6 +67,7 @@ interface {{ p.name }}
  switchport trunk encapsulation dot1q
  switchport mode trunk
  switchport nonegotiate
+ switchport trunk allowed vlan {{ p.allowed_vlans }}
  channel-group {{ p.channel_group }} mode active
  no shutdown
 {% elif p.mode == 'access' %}

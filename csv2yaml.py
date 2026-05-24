@@ -136,9 +136,12 @@ def parse_switch_ports():
             if dev != device:
                 continue
             for m in members:
+                # IOL/IOU L2 требует чтоб mode/encap/allowed_vlans совпадали
+                # между физическим членом и Port-channel'ом - иначе LACP отказывается bundle.
                 ports.append({
                     "name": m["iface"].strip(),
                     "channel_group": cg_id,
+                    "allowed_vlans": m.get("allowed_vlans", "").strip().replace(":", ","),
                     "description": m.get("description", "").strip(),
                 })
         # Сортируем по имени для детерминированного diff
