@@ -36,3 +36,4 @@ inventory.local.yml
 
 # --- Личный журнал работ (история, заметки, нюансы) — не для репо ---
 LOGBOOK.md
+WORKFLOW.md

@@ -1,8 +1,6 @@
 # LAB01 - адресация и автоматизация
 
-Учебная сетевая лаборатория OTUS в EVE-NG: 18 роутеров (Cisco IOL) и 7 свитчей (IOU L2) в 7 автономных системах. Документ содержит полный адресный план и краткое описание автоматизации.
-
-Концепции инструментов (telnet, expect, SSH, Ansible) - в [`WORKFLOW.md`](WORKFLOW.md).
+Учебная сетевая лаборатория OTUS в EVE-NG: 18 роутеров (Cisco IOL) и 7 свитчей (IOU L2) в 7 автономных системах. Документ содержит полный адресный план, краткое описание автоматизации и итоги по домашке.
 
 ---
 
@@ -187,9 +185,38 @@ otus_labs/
 ├── templates/device.j2     # один Jinja-шаблон, ветвится по kind (router/switch)
 ├── playbooks/apply.yml     # пушит конфиг через cisco.ios.ios_config
 │
-├── README.md               # этот файл (адресация + Ansible-обвязка)
-├── WORKFLOW.md             # концепции инструментов
+├── README.md               # этот файл (адресация + Ansible-обвязка + итоги)
+├── switch_ports.csv        # источник правды: L2-порты свитчей (access/trunk/LAG)
 └── net.png                 # схема EVE-NG топологии
 ```
 
-Руками редактируются только `devices.csv` и `links.csv`. Всё остальное (`host_vars/`, `inventory.yml`, `rendered/`) - вычисляемые артефакты.
+Руками редактируются только `devices.csv`, `links.csv` и `switch_ports.csv`. Всё остальное (`host_vars/`, `inventory.yml`, `rendered/`) - вычисляемые артефакты.
+
+---
+
+## 4. Итоги по домашке
+
+Все пять пунктов задания выполнены:
+
+| Требование задания | Реализация |
+|---|---|
+| Адресное пространство задокументировано | Этот README + `devices.csv` + `links.csv` (источники правды для автоматики), `net.png` (схема). |
+| IP на каждом активном порту роутеров | Loopback0 + Mgmt OOB `Ethernet1/3` + P2P-интерфейсы (`Ethernet0/x` /31). 23 P2P-линка на 18 роутеров. |
+| VPC в своей VLAN | Все 6 VPC в VLAN 10 USERS, access-порты с `spanning-tree portfast` + `bpduguard enable`. |
+| VLAN/Loopback management | Роутеры: `Loopback0` + L3 mgmt `Ethernet1/3`. Свитчи: SVI `Vlan500` (OOB через Cloud1) + SVI `Vlan250` (in-band local). |
+| Без broadcast-штормов | `spanning-tree mode rapid-pvst` на всех 7 свитчах. Access-порты с portfast (быстрый up) + bpduguard (auto-shutdown если BPDU прилетит снаружи). |
+| Оптимизация использования линков | LACP Port-channel'ы для параллельных линков: SW4↔SW5 (Po1 из 2 линков), SW9↔SW10 (Po1 из 2 линков). Оба линка in-use (`(P)` bundled), не блокируются STP. |
+
+### Что подтверждает работоспособность
+
+- **Все 25 устройств доступны по SSH** через Ansible: `ansible all -m ios_command -a "commands='show clock'"` отвечает от каждого.
+- **LAG bundled на 4 свитчах:** `show etherchannel summary` показывает `Po1(SU)` с членами `(P)`.
+- **L2-связность через trunk + LAG проверена:** ping между VPC8 (на SW9) и VPC (на SW10) идёт - пакет проходит SW9 access vlan10 → Po1 trunk → LAG → SW10 → access vlan10.
+- **STP стабилизирован:** `show spanning-tree summary` подтверждает `rapid-pvst mode` на всех свитчах, без err-disabled инцидентов.
+
+### Масштаб автоматизации
+
+- **25 устройств** под управлением одного плейбука (`apply.yml`)
+- **23 P2P-линка** + **4 LAG'а** + **4 VLAN'а** описаны в 3 плоских CSV
+- **0 ручных правок** на устройствах после первичного bootstrap'а
+- Любое изменение топологии или адресации: правишь CSV → `python csv2yaml.py` → `ansible-playbook apply.yml` → готово.
