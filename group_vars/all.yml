@@ -4,6 +4,7 @@
 # --- Платформа ---
 ansible_network_os: cisco.ios.ios
 ansible_connection: network_cli
+ansible_network_cli_ssh_type: paramiko   # явно говорим paramiko, чтоб не ныл про отсутствие ansible-pylibssh
 ansible_user: admin           # локальный пользователь на роутере
 ansible_password: cisco
 ansible_become: false         # privilege 15 даём через username, отдельный enable не нужен
