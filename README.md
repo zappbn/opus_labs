@@ -14,12 +14,12 @@ Ansible применяет конфиги на все устройства по 
 | Компонент | Статус |
 |---|---|
 | 18 роутеров (IOL) bootstrap'нуты: loopback + mgmt + SSH | ✅ |
+| 7 свитчей (IOU L2) bootstrap'нуты: SVI Vlan500 + SSH | ✅ |
 | OOB-сеть `192.168.100.0/24` между EVE-хостом и устройствами | ✅ |
-| Ansible 6.x на EVE-хосте, доступ ко всем 18 | ✅ |
+| Ansible 6.x на EVE-хосте, доступ ко всем 25 | ✅ |
 | 23 P2P-линка описаны в `links.csv` | ✅ |
 | Конфиги рендерятся (`render.py` / `apply.yml`) | ✅ |
-| Apply P2P на устройства | ⏳ следующий шаг |
-| Bootstrap 7 свитчей (SW2..SW29) | ⏳ |
+| Apply P2P на роутеры | ⏳ следующий шаг |
 | Static routes между лупбэками | ⏳ после P2P |
 | OSPF / BGP | 🚧 за рамками текущей фазы |
 
@@ -186,14 +186,12 @@ otus_labs/
 
 ## Что дальше
 
-1. **Apply P2P-конфигов** (`apply.yml --limit routers --check --diff` → если ок → без `--check`).
+1. **Apply P2P-конфигов** на роутеры (`apply.yml --limit routers --check --diff` → если ок → без `--check`).
    Verify через ping между смежными лупбэками.
-2. **Bootstrap свитчей** (SW2..SW29) — та же процедура, что и роутеров, шаблон уже умеет
-   рендерить switch-вариант (SVI Vlan1 + `ip default-gateway`).
-3. **Static routes** для cross-site reachability.
-4. **`ios_config` → declarative модули** (`ios_user`, `ios_interfaces`, `ios_l3_interfaces`)
+2. **Static routes** для cross-site reachability (внутри AS, потом cross-AS).
+3. **`ios_config` → declarative модули** (`ios_user`, `ios_interfaces`, `ios_l3_interfaces`)
    для настоящей идемпотентности.
-5. **OSPF / BGP**, когда курс дойдёт.
+4. **OSPF / BGP**, когда курс дойдёт.
 
 ---
 
