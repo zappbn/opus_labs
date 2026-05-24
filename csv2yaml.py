@@ -19,6 +19,7 @@ from pathlib import Path
 LAB_ROOT = Path(__file__).resolve().parent
 DEVICES_CSV = LAB_ROOT / "devices.csv"
 LINKS_CSV = LAB_ROOT / "links.csv"
+SWITCH_PORTS_CSV = LAB_ROOT / "switch_ports.csv"
 HOST_VARS_DIR = LAB_ROOT / "host_vars"
 INVENTORY_FILE = LAB_ROOT / "inventory.yml"
 
@@ -78,7 +79,80 @@ def parse_links():
     return by_host
 
 
-def write_host_vars(rows, links_by_host):
+def parse_switch_ports():
+    """device -> {ports: [...], port_channels: [...]}.
+
+    Группирует LAG-членов в Port-channel'ы. Возвращает структуру готовую для
+    подстановки в host_vars свитчей.
+    """
+    by_device = {}
+    if not SWITCH_PORTS_CSV.exists():
+        return by_device
+
+    with open(SWITCH_PORTS_CSV, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    # 1) Собираем LAG-членов отдельно, чтоб понять состав каждого Port-channel
+    lag_members = {}   # (device, cg_id) -> [row, ...]
+    other_rows = {}    # device -> [row, ...]
+    for row in rows:
+        device = row["device"].strip()
+        cg = row.get("channel_group", "").strip()
+        if cg:
+            lag_members.setdefault((device, int(cg)), []).append(row)
+        else:
+            other_rows.setdefault(device, []).append(row)
+
+    # 2) Соберём Port-channel-определения (одно на пару device+channel_group)
+    port_channels_by_device = {}
+    for (device, cg_id), members in lag_members.items():
+        # Берём настройки trunk/mode из первого члена (они должны совпадать)
+        first = members[0]
+        pc = {
+            "id": cg_id,
+            "mode": first["mode"].strip(),
+            "allowed_vlans": first.get("allowed_vlans", "").strip().replace(":", ","),
+            "description": f"LAG {cg_id} (members: {', '.join(m['iface'] for m in members)})",
+        }
+        port_channels_by_device.setdefault(device, []).append(pc)
+
+    # 3) Соберём ports на устройство (физические интерфейсы)
+    for device in set(list(other_rows.keys()) + [d for d, _ in lag_members.keys()]):
+        ports = []
+        # Сначала "обычные" порты
+        for row in other_rows.get(device, []):
+            port = {
+                "name": row["iface"].strip(),
+                "mode": row["mode"].strip(),
+                "description": row.get("description", "").strip(),
+            }
+            if port["mode"] == "access":
+                port["vlan"] = row["vlan"].strip()
+            elif port["mode"] == "trunk":
+                port["allowed_vlans"] = row.get("allowed_vlans", "").strip().replace(":", ",")
+            ports.append(port)
+        # Потом LAG-члены (для них в физическом интерфейсе только channel-group)
+        for (dev, cg_id), members in sorted(lag_members.items()):
+            if dev != device:
+                continue
+            for m in members:
+                ports.append({
+                    "name": m["iface"].strip(),
+                    "channel_group": cg_id,
+                    "description": m.get("description", "").strip(),
+                })
+        # Сортируем по имени для детерминированного diff
+        ports.sort(key=lambda x: x["name"])
+        by_device[device] = {
+            "ports": ports,
+            "port_channels": sorted(port_channels_by_device.get(device, []),
+                                    key=lambda x: x["id"]),
+        }
+
+    return by_device
+
+
+def write_host_vars(rows, links_by_host, switch_data):
     HOST_VARS_DIR.mkdir(parents=True, exist_ok=True)
     for r in rows:
         loopback_line = f"loopback_ip: {r['loopback']}\n" if r["loopback"] else ""
@@ -96,8 +170,34 @@ def write_host_vars(rows, links_by_host):
                     f"    network: {iface['network']}\n"
                 )
 
+        # Switch-only секции (если устройство свитч и для него есть данные)
+        sw_yml = ""
+        if r["kind"] == "switch" and r["hostname"] in switch_data:
+            sd = switch_data[r["hostname"]]
+            if sd["port_channels"]:
+                sw_yml += "port_channels:\n"
+                for pc in sd["port_channels"]:
+                    sw_yml += f"  - id: {pc['id']}\n"
+                    sw_yml += f"    mode: {pc['mode']}\n"
+                    if pc.get("allowed_vlans"):
+                        sw_yml += f"    allowed_vlans: \"{pc['allowed_vlans']}\"\n"
+                    sw_yml += f"    description: \"{pc['description']}\"\n"
+            if sd["ports"]:
+                sw_yml += "switch_ports:\n"
+                for p in sd["ports"]:
+                    sw_yml += f"  - name: {p['name']}\n"
+                    if "channel_group" in p:
+                        sw_yml += f"    channel_group: {p['channel_group']}\n"
+                    else:
+                        sw_yml += f"    mode: {p['mode']}\n"
+                        if p["mode"] == "access" and p.get("vlan"):
+                            sw_yml += f"    vlan: {p['vlan']}\n"
+                        if p["mode"] == "trunk" and p.get("allowed_vlans"):
+                            sw_yml += f"    allowed_vlans: \"{p['allowed_vlans']}\"\n"
+                    sw_yml += f"    description: \"{p['description']}\"\n"
+
         yml = (
-            f"# Generated from devices.csv + links.csv — не править руками\n"
+            f"# Generated from devices.csv + links.csv + switch_ports.csv — не править руками\n"
             f"kind: {r['kind']}\n"
             f"site: {r['site']}\n"
             f"asn: {r['asn']}\n"
@@ -105,6 +205,7 @@ def write_host_vars(rows, links_by_host):
             f"mgmt_inband_ip: {r['mgmt_inband']}\n"
             f"ansible_host: {r['mgmt_oob']}\n"
             f"{p2p_yml}"
+            f"{sw_yml}"
         )
         (HOST_VARS_DIR / f"{r['hostname']}.yml").write_text(yml, encoding="utf-8")
 
@@ -138,12 +239,20 @@ def write_inventory(rows):
 def main():
     rows = parse_devices()
     links = parse_links()
-    write_host_vars(rows, links)
+    switch_data = parse_switch_ports()
+    write_host_vars(rows, links, switch_data)
     write_inventory(rows)
 
     for r in rows:
-        n_ifaces = len(links.get(r["hostname"], []))
-        suffix = f"  +{n_ifaces} P2P" if n_ifaces else ""
+        n_p2p = len(links.get(r["hostname"], []))
+        sd = switch_data.get(r["hostname"], {})
+        n_pc = len(sd.get("port_channels", []))
+        n_ports = len(sd.get("ports", []))
+        extras = []
+        if n_p2p: extras.append(f"+{n_p2p} P2P")
+        if n_pc:  extras.append(f"+{n_pc} LAG")
+        if n_ports: extras.append(f"+{n_ports} ports")
+        suffix = "  " + "  ".join(extras) if extras else ""
         print(f"  {r['hostname']:<6} kind={r['kind']:<7} site={r['site']:<12} "
               f"OOB={r['mgmt_oob']:<16}{suffix}")
     print(f"\nУстройств: {len(rows)}  |  Линков: {sum(len(v) for v in links.values())//2}")

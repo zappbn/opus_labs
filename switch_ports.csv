@@ -1,0 +1,32 @@
+device,iface,mode,vlan,allowed_vlans,channel_group,description
+SW2,Ethernet0/0,trunk,,10:20:250,,to-SW5
+SW2,Ethernet0/1,trunk,,10:20:250,,to-SW4
+SW2,Ethernet0/2,access,10,,,VPC7-users
+SW3,Ethernet0/0,trunk,,10:20:250,,to-SW4
+SW3,Ethernet0/1,trunk,,10:20:250,,to-SW5
+SW3,Ethernet0/2,access,10,,,VPC1-users
+SW4,Ethernet0/0,trunk,,10:20:250,,to-SW3
+SW4,Ethernet0/1,trunk,,10:20:250,,to-SW2
+SW4,Ethernet0/2,trunk,,10:20:250,1,to-SW5-lag1
+SW4,Ethernet0/3,trunk,,10:20:250,1,to-SW5-lag1
+SW4,Ethernet1/0,shutdown,,,,Reserved (R12 uplink unused)
+SW4,Ethernet1/1,shutdown,,,,Reserved (R13 uplink unused)
+SW5,Ethernet0/0,trunk,,10:20:250,,to-SW2
+SW5,Ethernet0/1,trunk,,10:20:250,,to-SW3
+SW5,Ethernet0/2,trunk,,10:20:250,1,to-SW4-lag1
+SW5,Ethernet0/3,trunk,,10:20:250,1,to-SW4-lag1
+SW5,Ethernet1/0,shutdown,,,,Reserved (R13 uplink unused)
+SW5,Ethernet1/1,shutdown,,,,Reserved (R12 uplink unused)
+SW9,Ethernet0/0,trunk,,10:20:250,1,to-SW10-lag1
+SW9,Ethernet0/1,trunk,,10:20:250,1,to-SW10-lag1
+SW9,Ethernet0/2,access,10,,,VPC8-users
+SW9,Ethernet0/3,shutdown,,,,Reserved (R17 uplink unused)
+SW9,Ethernet1/0,shutdown,,,,Reserved (R16 uplink unused)
+SW10,Ethernet0/0,trunk,,10:20:250,1,to-SW9-lag1
+SW10,Ethernet0/1,trunk,,10:20:250,1,to-SW9-lag1
+SW10,Ethernet0/2,access,10,,,VPC-users
+SW10,Ethernet0/3,shutdown,,,,Reserved (R16 uplink unused)
+SW10,Ethernet1/0,shutdown,,,,Reserved (R17 uplink unused)
+SW29,Ethernet0/0,access,10,,,VPC30-users
+SW29,Ethernet0/1,access,10,,,VPC31-users
+SW29,Ethernet0/2,shutdown,,,,Reserved (R28 uplink unused)

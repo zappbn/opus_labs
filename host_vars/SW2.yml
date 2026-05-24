@@ -1,6 +1,19 @@
-# Generated from devices.csv + links.csv — не править руками
+# Generated from devices.csv + links.csv + switch_ports.csv — не править руками
 kind: switch
 site: Moscow
 asn: 65001
 mgmt_inband_ip: 10.1.250.102
 ansible_host: 192.168.100.2
+switch_ports:
+  - name: Ethernet0/0
+    mode: trunk
+    allowed_vlans: "10,20,250"
+    description: "to-SW5"
+  - name: Ethernet0/1
+    mode: trunk
+    allowed_vlans: "10,20,250"
+    description: "to-SW4"
+  - name: Ethernet0/2
+    mode: access
+    vlan: 10
+    description: "VPC7-users"

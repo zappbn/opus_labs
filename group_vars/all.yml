@@ -21,7 +21,13 @@ mgmt_iface: Ethernet1/3
 mgmt_subnet_prefix: 192.168.100   # OOB-подсеть: 192.168.100.0/24
 mgmt_netmask: 255.255.255.0
 mgmt_gateway: 192.168.100.1       # IP, который дадим EVE-хосту на pnet1
-mgmt_vlan: 500                    # для свитчей: VLAN под mgmt SVI (не дефолтный 1!)
+mgmt_vlan: 500                    # для свитчей: OOB mgmt VLAN
+inband_mgmt_vlan: 250             # для свитчей: in-band mgmt VLAN (внутри сайта)
+
+# --- L2 VLANs на свитчах (помимо mgmt) ---
+site_vlans:
+  - { id: 10,  name: USERS }
+  - { id: 20,  name: SERVERS }
 
 # --- Креды (минимум для лабы) ---
 vty_password: cisco

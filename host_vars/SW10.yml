@@ -1,6 +1,28 @@
-# Generated from devices.csv + links.csv — не править руками
+# Generated from devices.csv + links.csv + switch_ports.csv — не править руками
 kind: switch
 site: SPB
 asn: 65002
 mgmt_inband_ip: 10.2.250.110
 ansible_host: 192.168.100.10
+port_channels:
+  - id: 1
+    mode: trunk
+    allowed_vlans: "10,20,250"
+    description: "LAG 1 (members: Ethernet0/0, Ethernet0/1)"
+switch_ports:
+  - name: Ethernet0/0
+    channel_group: 1
+    description: "to-SW9-lag1"
+  - name: Ethernet0/1
+    channel_group: 1
+    description: "to-SW9-lag1"
+  - name: Ethernet0/2
+    mode: access
+    vlan: 10
+    description: "VPC-users"
+  - name: Ethernet0/3
+    mode: shutdown
+    description: "Reserved (R16 uplink unused)"
+  - name: Ethernet1/0
+    mode: shutdown
+    description: "Reserved (R17 uplink unused)"

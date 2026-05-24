@@ -26,8 +26,16 @@ interface {{ iface.name }}
  no shutdown
 {% endfor %}
 {% else %}
+spanning-tree mode rapid-pvst
+!
 vlan {{ mgmt_vlan }}
- name MGMT
+ name MGMT-OOB
+{% for v in site_vlans | default([]) %}
+vlan {{ v.id }}
+ name {{ v.name }}
+{% endfor %}
+vlan {{ inband_mgmt_vlan }}
+ name MGMT-INBAND
 !
 interface {{ mgmt_iface }}
  description MGMT-uplink to Cloud1
@@ -35,9 +43,44 @@ interface {{ mgmt_iface }}
  switchport access vlan {{ mgmt_vlan }}
  no shutdown
 !
+{% for pc in port_channels | default([]) %}
+interface Port-channel{{ pc.id }}
+ description {{ pc.description }}
+ switchport mode {{ pc.mode }}
+{% if pc.mode == 'trunk' and pc.allowed_vlans %}
+ switchport trunk allowed vlan {{ pc.allowed_vlans }}
+{% endif %}
+!
+{% endfor %}
+{% for p in switch_ports | default([]) %}
+interface {{ p.name }}
+ description {{ p.description }}
+{% if p.mode is defined and p.mode == 'shutdown' %}
+ shutdown
+{% elif p.channel_group is defined %}
+ channel-group {{ p.channel_group }} mode active
+ no shutdown
+{% elif p.mode == 'access' %}
+ switchport mode access
+ switchport access vlan {{ p.vlan }}
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+{% elif p.mode == 'trunk' %}
+ switchport mode trunk
+ switchport trunk allowed vlan {{ p.allowed_vlans }}
+ no shutdown
+{% endif %}
+!
+{% endfor %}
 interface Vlan{{ mgmt_vlan }}
  description MGMT-OOB
  ip address {{ ansible_host }} {{ mgmt_netmask }}
+ no shutdown
+!
+interface Vlan{{ inband_mgmt_vlan }}
+ description MGMT-INBAND (local, no external gateway)
+ ip address {{ mgmt_inband_ip }} 255.255.255.0
  no shutdown
 !
 ip default-gateway {{ mgmt_gateway }}

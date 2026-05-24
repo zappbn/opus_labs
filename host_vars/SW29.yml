@@ -1,6 +1,18 @@
-# Generated from devices.csv + links.csv — не править руками
+# Generated from devices.csv + links.csv + switch_ports.csv — не править руками
 kind: switch
 site: Vologda
 asn: 65007
 mgmt_inband_ip: 10.7.250.129
 ansible_host: 192.168.100.29
+switch_ports:
+  - name: Ethernet0/0
+    mode: access
+    vlan: 10
+    description: "VPC30-users"
+  - name: Ethernet0/1
+    mode: access
+    vlan: 10
+    description: "VPC31-users"
+  - name: Ethernet0/2
+    mode: shutdown
+    description: "Reserved (R28 uplink unused)"

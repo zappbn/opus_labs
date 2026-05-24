@@ -1,4 +1,4 @@
-# Generated from devices.csv + links.csv — не править руками
+# Generated from devices.csv + links.csv + switch_ports.csv — не править руками
 kind: router
 site: Kitorn
 asn: 65004

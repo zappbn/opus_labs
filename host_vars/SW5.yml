@@ -1,6 +1,32 @@
-# Generated from devices.csv + links.csv — не править руками
+# Generated from devices.csv + links.csv + switch_ports.csv — не править руками
 kind: switch
 site: Moscow
 asn: 65001
 mgmt_inband_ip: 10.1.250.105
 ansible_host: 192.168.100.5
+port_channels:
+  - id: 1
+    mode: trunk
+    allowed_vlans: "10,20,250"
+    description: "LAG 1 (members: Ethernet0/2, Ethernet0/3)"
+switch_ports:
+  - name: Ethernet0/0
+    mode: trunk
+    allowed_vlans: "10,20,250"
+    description: "to-SW2"
+  - name: Ethernet0/1
+    mode: trunk
+    allowed_vlans: "10,20,250"
+    description: "to-SW3"
+  - name: Ethernet0/2
+    channel_group: 1
+    description: "to-SW4-lag1"
+  - name: Ethernet0/3
+    channel_group: 1
+    description: "to-SW4-lag1"
+  - name: Ethernet1/0
+    mode: shutdown
+    description: "Reserved (R13 uplink unused)"
+  - name: Ethernet1/1
+    mode: shutdown
+    description: "Reserved (R12 uplink unused)"
