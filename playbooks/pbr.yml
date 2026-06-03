@@ -1,0 +1,126 @@
+---
+# PBR для Vologda (R28) + default route для Cherepovets (R27).
+# Чокурдах/Лабытнанги в терминах домашки = Vologda/Cherepovets у нас в лабе.
+#
+# Запуск:
+#   ansible-playbook playbooks/pbr.yml --check --diff -v   # план
+#   ansible-playbook playbooks/pbr.yml                     # apply
+
+- name: PBR Vologda (R28) and default route Cherepovets (R27)
+  hosts: R28,R27
+  gather_facts: false
+  tasks:
+
+    # ----------------------------------------------------------------
+    # R28 (Vologda / Чокурдах) - router-on-a-stick + PBR + SLA + Track
+    # ----------------------------------------------------------------
+
+    - name: R28 - physical trunk parent (no IP, just transit)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - description Trunk to SW29 (Vologda site)
+          - no ip address
+          - no shutdown
+        parents: interface Ethernet0/2
+
+    - name: R28 - subinterface VLAN 10 USERS (gateway 10.7.10.1) - PBR applied
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - description Gateway VLAN 10 USERS (PBR ingress)
+          - encapsulation dot1q 10
+          - ip address 10.7.10.1 255.255.255.0
+          - ip policy route-map PBR-VOLOGDA
+        parents: interface Ethernet0/2.10
+
+    - name: R28 - subinterface VLAN 250 MGMT-INBAND (gateway 10.7.250.1) - NO PBR
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - description Gateway VLAN 250 MGMT-INBAND (no PBR by design)
+          - encapsulation dot1q 250
+          - ip address 10.7.250.1 255.255.255.0
+        parents: interface Ethernet0/2.250
+
+    - name: R28 - IP SLA 1 (probe ISP-1 = R25 side, via Eth0/1)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - icmp-echo 172.16.0.14 source-interface Ethernet0/1
+          - frequency 5
+        parents: ip sla 1
+
+    - name: R28 - IP SLA 2 (probe ISP-2 = R26 side, via Eth0/0)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - icmp-echo 172.16.0.12 source-interface Ethernet0/0
+          - frequency 5
+        parents: ip sla 2
+
+    - name: R28 - schedule both SLAs (run forever, starting now)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - ip sla schedule 1 life forever start-time now
+          - ip sla schedule 2 life forever start-time now
+
+    - name: R28 - Track 1 (ISP-1 reachability)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - delay down 10 up 5
+        parents: track 1 ip sla 1 reachability
+
+    - name: R28 - Track 2 (ISP-2 reachability)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - delay down 10 up 5
+        parents: track 2 ip sla 2 reachability
+
+    - name: R28 - ACL USERS_TO_MSK_SPB (traffic from Vologda to Moscow/SPB)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - permit ip 10.7.0.0 0.0.255.255 10.1.0.0 0.0.255.255
+          - permit ip 10.7.0.0 0.0.255.255 10.2.0.0 0.0.255.255
+        parents: ip access-list extended USERS_TO_MSK_SPB
+
+    - name: R28 - ACL USERS_TO_TRD_CHR (traffic from Vologda to Triada/Cherepovets)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - permit ip 10.7.0.0 0.0.255.255 10.5.0.0 0.0.255.255
+          - permit ip 10.7.0.0 0.0.255.255 10.6.0.0 0.0.255.255
+        parents: ip access-list extended USERS_TO_TRD_CHR
+
+    - name: R28 - route-map PBR-VOLOGDA seq 10 (MSK/SPB - primary ISP-1)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - match ip address USERS_TO_MSK_SPB
+          - set ip next-hop verify-availability 172.16.0.14 10 track 1
+          - set ip next-hop verify-availability 172.16.0.12 20 track 2
+        parents: route-map PBR-VOLOGDA permit 10
+
+    - name: R28 - route-map PBR-VOLOGDA seq 20 (TRD/CHR - primary ISP-2)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - match ip address USERS_TO_TRD_CHR
+          - set ip next-hop verify-availability 172.16.0.12 10 track 2
+          - set ip next-hop verify-availability 172.16.0.14 20 track 1
+        parents: route-map PBR-VOLOGDA permit 20
+
+    # ----------------------------------------------------------------
+    # R27 (Cherepovets / Лабытнанги) - simple static default route
+    # ----------------------------------------------------------------
+
+    - name: R27 - default route via R25 (Triada)
+      when: inventory_hostname == 'R27'
+      cisco.ios.ios_config:
+        lines:
+          - ip route 0.0.0.0 0.0.0.0 172.16.0.10 name default-via-R25
+        save_when: modified

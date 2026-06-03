@@ -14,5 +14,6 @@ switch_ports:
     vlan: 10
     description: "VPC31-users"
   - name: Ethernet0/2
-    mode: shutdown
-    description: "Reserved (R28 uplink unused)"
+    mode: trunk
+    allowed_vlans: "10,20,250"
+    description: "to-R28-trunk (all site VLANs)"

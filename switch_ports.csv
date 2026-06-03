@@ -29,4 +29,4 @@ SW10,Ethernet0/3,shutdown,,,,Reserved (R16 uplink unused)
 SW10,Ethernet1/0,shutdown,,,,Reserved (R17 uplink unused)
 SW29,Ethernet0/0,access,10,,,VPC30-users
 SW29,Ethernet0/1,access,10,,,VPC31-users
-SW29,Ethernet0/2,shutdown,,,,Reserved (R28 uplink unused)
+SW29,Ethernet0/2,trunk,,10:20:250,,to-R28-trunk (all site VLANs)
