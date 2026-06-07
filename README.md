@@ -209,7 +209,12 @@ otus_labs/
 │
 ├── README.md               # этот файл (адресация + Ansible-обвязка + итоги)
 ├── switch_ports.csv        # источник правды: L2-порты свитчей (access/trunk/LAG)
-└── net.png                 # схема EVE-NG топологии
+├── net.png                 # схема EVE-NG топологии
+│
+└── homework/               # домашки, по папке на задание
+    └── pbr/                # PBR + IP SLA + Track + default route
+        ├── README.md       # постановка, дизайн, проверки, результаты
+        └── pbr.yml         # плейбук для R28 + SW29 + R27
 ```
 
 Руками редактируются только `devices.csv`, `links.csv` и `switch_ports.csv`. Всё остальное (`host_vars/`, `inventory.yml`, `rendered/`) - вычисляемые артефакты.
