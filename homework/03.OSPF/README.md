@@ -25,7 +25,7 @@
 | R14 Eth0/3 ↔ R19 Eth0/0 | 10.1.254.8/31 | 101 |
 | R15 Eth0/3 ↔ R20 Eth0/0 | 10.1.254.10/31 | 102 |
 
-Между R14 и R15 прямого физического линка нет. Area 0 связывается через virtual-link, где transit-area = 10.
+Между R14 и R15 прямого физического линка нет. Я решил Area 0 связывать через virtual-link, где transit-area = 10.
 
 Inter-AS линки (R14 Eth0/2 к R22, R15 Eth0/2 к R21) в OSPF не включаем, чтобы LSA не утекали в чужие AS.
 
@@ -38,13 +38,13 @@ Inter-AS линки (R14 Eth0/2 к R22, R15 Eth0/2 к R21) в OSPF не вклю
 | 101 | totally stubby | R19 (internal); R14 (ABR) | Loopback R19 + P2P R14-R19 |
 | 102 | regular | R20 (internal); R15 (ABR) | Loopback R20 + P2P R15-R20 |
 
-### Почему area 10 regular, а не stub
+###  area 10 regular, а не stub
 
-Через area 10 идёт virtual-link, а transit area для vlink обязана быть regular (RFC 2328). Поэтому stub нельзя.
+Через area 10 идёт virtual-link, хотел ее сделать stub, но так нельзя (RFC 2328 -transit area для vlink обязана быть regular).
 
-Минус такого решения: default route в area 10 автоматически не инжектится (это была плюшка stub area). Поэтому на R14 и R15 явно стоит `default-information originate always`. Для R12/R13 эффект тот же — `0.0.0.0/0` в таблице маршрутов, просто приходит как LSA-5 (external) а не LSA-3.
+Минус: default route в area 10 автоматически не будет. Поэтому на R14 и R15 явно ставлю `default-information originate always`. Для R12/R13 эффект тот же — `0.0.0.0/0` в таблице маршрутов, просто приходит как LSA-5 (external) а не LSA-3.
 
-### Почему area 101 totally stubby
+###  area 101 totally stubby
 
 По заданию R19 видит только default. Под это идеально ложится totally stubby:
 - `area 101 stub no-summary` на ABR R14 блокирует LSA-3 (summary inter-area)
@@ -53,7 +53,7 @@ Inter-AS линки (R14 Eth0/2 к R22, R15 Eth0/2 к R21) в OSPF не вклю
 
 R19 в итоге видит только default + свои локальные intra-area сети.
 
-### Почему area 102 regular + filter-list
+###  area 102 regular + filter-list
 
 R20 должен видеть всё, кроме area 101. Stub-вариант не подходит — там нельзя выборочно резать конкретные префиксы. Поэтому area 102 regular, а на ABR R15 ставится prefix-list фильтр.
 
@@ -66,14 +66,6 @@ router ospf 1
  area 102 filter-list prefix DENY-AREA101 in
 ```
 
-Тонкий момент про направление в `area X filter-list`:
-
-- `out` режет LSA-3 про сети самой area X при их трансляции наружу
-- `in` режет LSA-3 про сети других area при их установке в area X
-
-Нам нужно второе — `in`. С `out` команда формально применится, но фильтра не будет (он будет работать в другую сторону, для сетей самой 102, которых под фильтр не подпадают). Я на этом и наступил — первый прогон не сработал, разобрался по `show ip ospf database summary 10.1.254.8`: видел что R15 продолжает анонсировать LSA-3 в area 102, поменял `out` на `in` и сделал `clear ip ospf process`.
-
-Default route к R20 проходит и при включённом фильтре, потому что он LSA-5 (от `originate always`), а filter-list режет только LSA-3.
 
 ## Virtual-link
 
@@ -89,7 +81,6 @@ router ospf 1
  area 10 virtual-link 10.1.255.14
 ```
 
-После сходимости `show ip ospf virtual-links` показывает `OSPF_VL0 is up`, transit area 10, через тот интерфейс R14/R15 в area 10, который OSPF выбрал как ближайший путь к peer-RID.
 
 ## Router-ID
 
@@ -106,7 +97,7 @@ router ospf 1
 
 ## Network type
 
-На всех /31 поставил `ip ospf network point-to-point`. По умолчанию IOS на Ethernet ставит broadcast, идут выборы DR/BDR, на /31 это никому не нужно и просто замедляет схождение. P2P-тип даёт быстрее adj и читаемее логи.
+На всех /31 поставил `ip ospf network point-to-point`. По умолчанию IOS на Ethernet ставит broadcast, идут выборы DR/BDR, на /31 это никому не нужно и просто замедляет схождение, P2P-тип даёт быстрее adj и читаемее логи.
 
 ## Интерфейсы в OSPF
 
@@ -244,7 +235,7 @@ O IA  10.1.255.15/32  [110/11] via 10.1.254.10, Ethernet0/0
 
 ## Чего нет и почему
 
-- IPv6 (OSPFv3). В задании сказано что повторяет логику IPv4, но IPv6-адресации в проекте ещё нет. Дизайн копировался бы 1:1: `ipv6 router ospf 1`, `ipv6 ospf 1 area X` на интерфейсах, тот же `area X virtual-link` для связи backbone, тот же filter-list (но prefix-list IPv6).
+- IPv6 (OSPFv3) - пока что не делаю
 - Inter-AS линки в OSPF не включены. R14 Eth0/2 и R15 Eth0/2 идут в другую AS, OSPF Moscow-домена туда не утекает.
 - Static redistribution не делал. Default отдаётся через `originate always`, никаких внешних статических маршрутов в OSPF не тянем.
 
