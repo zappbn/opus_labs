@@ -149,6 +149,14 @@
           - set ip next-hop verify-availability 172.16.0.14 20 track 1
         parents: route-map PBR-VOLOGDA permit 20
 
+    - name: R28 - route-map seq 30 (catch-all - rest goes via ISP-1, fallback ISP-2)
+      when: inventory_hostname == 'R28'
+      cisco.ios.ios_config:
+        lines:
+          - set ip next-hop verify-availability 172.16.0.14 10 track 1
+          - set ip next-hop verify-availability 172.16.0.12 20 track 2
+        parents: route-map PBR-VOLOGDA permit 30
+
     # =================================================================
     # R27 (Cherepovets/Лабытнанги) - простой default route
     # =================================================================
