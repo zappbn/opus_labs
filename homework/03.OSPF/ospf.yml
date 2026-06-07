@@ -1,0 +1,245 @@
+---
+# OSPF Moscow: area 0 (R14, R15) + area 10 (R12, R13) + area 101 (R19) + area 102 (R20).
+#
+# Дизайн:
+#   area 0   - backbone, только loopback R14/R15 + virtual-link
+#   area 10  - regular (потому что vlink идёт через неё transit, stub нельзя)
+#   area 101 - totally stubby (R19 видит только default)
+#   area 102 - regular + prefix-list filter (R20 видит всё кроме сетей area 101)
+#
+# Связность area 0: virtual-link R14 <-> R15 через area 10 как transit.
+# Default route для R12/R13 и R20: default-information originate always на R14 и R15.
+#
+# Запуск:
+#   ansible-playbook homework/03.OSPF/ospf.yml --check --diff -v   # план
+#   ansible-playbook homework/03.OSPF/ospf.yml                      # apply
+
+- name: OSPF Moscow (area 0/10/101/102 + virtual-link + filter)
+  hosts: R12,R13,R14,R15,R19,R20
+  gather_facts: false
+  tasks:
+
+    # =================================================================
+    # R12 - internal area 10
+    # =================================================================
+
+    - name: R12 - OSPF process + router-id
+      when: inventory_hostname == 'R12'
+      cisco.ios.ios_config:
+        lines:
+          - router-id 10.1.255.12
+        parents: router ospf 1
+
+    - name: R12 - Loopback0 в area 10
+      when: inventory_hostname == 'R12'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+        parents: interface Loopback0
+
+    - name: R12 - Eth0/2 (к R14) в area 10
+      when: inventory_hostname == 'R12'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/2
+
+    - name: R12 - Eth0/3 (к R15) в area 10
+      when: inventory_hostname == 'R12'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/3
+        save_when: modified
+
+    # =================================================================
+    # R13 - internal area 10 (зеркало R12)
+    # =================================================================
+
+    - name: R13 - OSPF process + router-id
+      when: inventory_hostname == 'R13'
+      cisco.ios.ios_config:
+        lines:
+          - router-id 10.1.255.13
+        parents: router ospf 1
+
+    - name: R13 - Loopback0 в area 10
+      when: inventory_hostname == 'R13'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+        parents: interface Loopback0
+
+    - name: R13 - Eth0/2 (к R15) в area 10
+      when: inventory_hostname == 'R13'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/2
+
+    - name: R13 - Eth0/3 (к R14) в area 10
+      when: inventory_hostname == 'R13'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/3
+        save_when: modified
+
+    # =================================================================
+    # R14 - ABR area 0 / area 10 / area 101
+    # =================================================================
+
+    - name: R14 - OSPF process + router-id + vlink + stub area + originate default
+      when: inventory_hostname == 'R14'
+      cisco.ios.ios_config:
+        lines:
+          - router-id 10.1.255.14
+          - area 101 stub no-summary
+          - area 10 virtual-link 10.1.255.15
+          - default-information originate always
+        parents: router ospf 1
+
+    - name: R14 - Loopback0 в area 0
+      when: inventory_hostname == 'R14'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 0
+        parents: interface Loopback0
+
+    - name: R14 - Eth0/0 (к R12) в area 10
+      when: inventory_hostname == 'R14'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/0
+
+    - name: R14 - Eth0/1 (к R13) в area 10
+      when: inventory_hostname == 'R14'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/1
+
+    - name: R14 - Eth0/3 (к R19) в area 101
+      when: inventory_hostname == 'R14'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 101
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/3
+        save_when: modified
+
+    # =================================================================
+    # R15 - ABR area 0 / area 10 / area 102 + filter-list на area 102
+    # =================================================================
+
+    - name: R15 - prefix-list DENY-AREA101 (что НЕ пускать в area 102)
+      when: inventory_hostname == 'R15'
+      cisco.ios.ios_config:
+        lines:
+          - ip prefix-list DENY-AREA101 seq 5 deny 10.1.254.8/31
+          - ip prefix-list DENY-AREA101 seq 10 deny 10.1.255.19/32
+          - ip prefix-list DENY-AREA101 seq 100 permit 0.0.0.0/0 le 32
+
+    - name: R15 - OSPF process + router-id + vlink + area 102 filter + originate default
+      when: inventory_hostname == 'R15'
+      cisco.ios.ios_config:
+        lines:
+          - router-id 10.1.255.15
+          - area 10 virtual-link 10.1.255.14
+          - area 102 filter-list prefix DENY-AREA101 out
+          - default-information originate always
+        parents: router ospf 1
+
+    - name: R15 - Loopback0 в area 0
+      when: inventory_hostname == 'R15'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 0
+        parents: interface Loopback0
+
+    - name: R15 - Eth0/0 (к R13) в area 10
+      when: inventory_hostname == 'R15'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/0
+
+    - name: R15 - Eth0/1 (к R12) в area 10
+      when: inventory_hostname == 'R15'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 10
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/1
+
+    - name: R15 - Eth0/3 (к R20) в area 102
+      when: inventory_hostname == 'R15'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 102
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/3
+        save_when: modified
+
+    # =================================================================
+    # R19 - internal area 101 (stub)
+    # =================================================================
+
+    - name: R19 - OSPF process + router-id + area 101 stub
+      when: inventory_hostname == 'R19'
+      cisco.ios.ios_config:
+        lines:
+          - router-id 10.1.255.19
+          - area 101 stub
+        parents: router ospf 1
+
+    - name: R19 - Loopback0 в area 101
+      when: inventory_hostname == 'R19'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 101
+        parents: interface Loopback0
+
+    - name: R19 - Eth0/0 (к R14) в area 101
+      when: inventory_hostname == 'R19'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 101
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/0
+        save_when: modified
+
+    # =================================================================
+    # R20 - internal area 102 (regular, фильтр применяется на R15)
+    # =================================================================
+
+    - name: R20 - OSPF process + router-id
+      when: inventory_hostname == 'R20'
+      cisco.ios.ios_config:
+        lines:
+          - router-id 10.1.255.20
+        parents: router ospf 1
+
+    - name: R20 - Loopback0 в area 102
+      when: inventory_hostname == 'R20'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 102
+        parents: interface Loopback0
+
+    - name: R20 - Eth0/0 (к R15) в area 102
+      when: inventory_hostname == 'R20'
+      cisco.ios.ios_config:
+        lines:
+          - ip ospf 1 area 102
+          - ip ospf network point-to-point
+        parents: interface Ethernet0/0
+        save_when: modified

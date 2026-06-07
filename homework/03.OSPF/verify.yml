@@ -1,0 +1,99 @@
+---
+# Проверка OSPF Moscow: соседи, virtual-link, маршруты по каждому acceptance criterion.
+#
+# Запуск:
+#   ansible-playbook homework/03.OSPF/verify.yml
+
+- name: OSPF verification - acceptance checks
+  hosts: R12,R13,R14,R15,R19,R20
+  gather_facts: false
+  tasks:
+
+    # ---------- 1. Соседства ----------
+    - name: 1. OSPF neighbors (должно быть FULL у всех)
+      cisco.ios.ios_command:
+        commands:
+          - show ip ospf neighbor
+      register: neighbors
+
+    - name: 1. PRINT neighbors
+      ansible.builtin.debug:
+        msg: "{{ neighbors.stdout_lines[0] }}"
+
+    # ---------- 2. Virtual-link (только R14, R15) ----------
+    - name: 2. Virtual-link state (должен быть UP)
+      when: inventory_hostname in ['R14', 'R15']
+      cisco.ios.ios_command:
+        commands:
+          - show ip ospf virtual-links
+      register: vlinks
+
+    - name: 2. PRINT virtual-link
+      when: inventory_hostname in ['R14', 'R15']
+      ansible.builtin.debug:
+        msg: "{{ vlinks.stdout_lines[0] }}"
+
+    # ---------- 3. R12 - все маршруты + default ----------
+    - name: 3. R12 routes (acceptance - все area + default)
+      when: inventory_hostname == 'R12'
+      cisco.ios.ios_command:
+        commands:
+          - show ip route ospf
+      register: r12_routes
+
+    - name: 3. PRINT R12 routes
+      when: inventory_hostname == 'R12'
+      ansible.builtin.debug:
+        msg: "{{ r12_routes.stdout_lines[0] }}"
+
+    # ---------- 4. R19 - ТОЛЬКО default ----------
+    - name: 4. R19 routes (acceptance - ТОЛЬКО default)
+      when: inventory_hostname == 'R19'
+      cisco.ios.ios_command:
+        commands:
+          - show ip route ospf
+      register: r19_routes
+
+    - name: 4. PRINT R19 routes (ожидаем только O*IA 0.0.0.0/0)
+      when: inventory_hostname == 'R19'
+      ansible.builtin.debug:
+        msg: "{{ r19_routes.stdout_lines[0] }}"
+
+    # ---------- 5. R20 - всё КРОМЕ area 101 ----------
+    - name: 5. R20 routes (acceptance - всё кроме 10.1.254.8/31 и 10.1.255.19/32)
+      when: inventory_hostname == 'R20'
+      cisco.ios.ios_command:
+        commands:
+          - show ip route ospf
+      register: r20_routes
+
+    - name: 5. PRINT R20 routes (НЕ должно быть 10.1.254.8 и 10.1.255.19)
+      when: inventory_hostname == 'R20'
+      ansible.builtin.debug:
+        msg: "{{ r20_routes.stdout_lines[0] }}"
+
+    # ---------- 6. R15 LSDB - префиксы area 101 есть в базе, но не уходят в 102 ----------
+    - name: 6. R15 OSPF database summary (LSA-3, что R15 знает про area 101)
+      when: inventory_hostname == 'R15'
+      cisco.ios.ios_command:
+        commands:
+          - show ip ospf database summary
+      register: r15_db
+
+    - name: 6. PRINT R15 LSDB summary (должны быть видны 10.1.254.8, 10.1.255.19 - но не транслируются в area 102)
+      when: inventory_hostname == 'R15'
+      ansible.builtin.debug:
+        msg: "{{ r15_db.stdout_lines[0] }}"
+
+    # ---------- 7. Бонус: default-info originate (R14/R15) ----------
+    - name: 7. Default route в running (originate always работает)
+      when: inventory_hostname in ['R14', 'R15']
+      cisco.ios.ios_command:
+        commands:
+          - show ip ospf | include Originate
+      register: originate
+
+    - name: 7. PRINT originate marker
+      when: inventory_hostname in ['R14', 'R15']
+      ansible.builtin.debug:
+        msg: "{{ originate.stdout_lines[0] }}"
