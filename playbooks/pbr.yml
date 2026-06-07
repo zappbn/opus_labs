@@ -39,7 +39,7 @@
         lines:
           - description L3 link to R28 (Vologda border router)
           - no switchport
-          - ip address 10.7.254.0 255.255.255.252
+          - ip address 10.7.254.0 255.255.255.254
           - no shutdown
         parents: interface Ethernet0/2
 
@@ -53,21 +53,12 @@
     # R28 - border router: routed-port к SW29, PBR + SLA + Track
     # =================================================================
 
-    # Подчищаем возможные sub-interface'ы от старой попытки Design A
-    - name: R28 - убрать старые sub-interface'ы (если были)
-      when: inventory_hostname == 'R28'
-      cisco.ios.ios_config:
-        lines:
-          - no interface Ethernet0/2.10
-          - no interface Ethernet0/2.250
-        match: none
-
     - name: R28 - Ethernet0/2 как routed-port к SW29 (PBR ingress здесь)
       when: inventory_hostname == 'R28'
       cisco.ios.ios_config:
         lines:
           - description L3 link to SW29 (PBR ingress)
-          - ip address 10.7.254.1 255.255.255.252
+          - ip address 10.7.254.1 255.255.255.254
           - ip policy route-map PBR-VOLOGDA
           - no shutdown
         parents: interface Ethernet0/2
