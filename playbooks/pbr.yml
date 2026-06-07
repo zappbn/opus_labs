@@ -48,6 +48,7 @@
       cisco.ios.ios_config:
         lines:
           - ip route 0.0.0.0 0.0.0.0 10.7.254.1 name default-via-R28
+        save_when: modified
 
     # =================================================================
     # R28 - border router: routed-port к SW29, PBR + SLA + Track
@@ -147,6 +148,7 @@
           - set ip next-hop verify-availability 172.16.0.14 10 track 1
           - set ip next-hop verify-availability 172.16.0.12 20 track 2
         parents: route-map PBR-VOLOGDA permit 30
+        save_when: modified
 
     # =================================================================
     # R27 (Cherepovets/Лабытнанги) - простой default route
