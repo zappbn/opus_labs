@@ -105,19 +105,6 @@ Mgmt-трафик через PBR не гоняем. Если он попадёт
 | Inter-AS R27 ↔ R25 | `172.16.0.10/31` (R27 = `.11`, R25 = `.10`) |
 | R27 default route | через `172.16.0.10` (R25) |
 
-## Запуск
-
-С EVE-хоста (где живёт Ansible):
-
-```bash
-cd /root/otus_labs
-git pull
-ansible-playbook homework/02.PBR/pbr.yml --check --diff -v   # plan
-ansible-playbook homework/02.PBR/pbr.yml                      # apply
-```
-
-После apply на устройствах будут все блоки конфигурации (PBR/SLA/Track/ACL/route-map на R28, SVI Vlan10 + routed-port на SW29, default route на R27). `save_when: modified` обеспечивает сохранение в startup-config.
-
 ## Проверка работы
 
 ### 1. Маршруты SW29
