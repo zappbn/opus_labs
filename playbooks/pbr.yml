@@ -39,7 +39,7 @@
         lines:
           - description L3 link to R28 (Vologda border router)
           - no switchport
-          - ip address 10.7.100.1 255.255.255.252
+          - ip address 10.7.254.0 255.255.255.252
           - no shutdown
         parents: interface Ethernet0/2
 
@@ -47,7 +47,7 @@
       when: inventory_hostname == 'SW29'
       cisco.ios.ios_config:
         lines:
-          - ip route 0.0.0.0 0.0.0.0 10.7.100.2 name default-via-R28
+          - ip route 0.0.0.0 0.0.0.0 10.7.254.1 name default-via-R28
 
     # =================================================================
     # R28 - border router: routed-port к SW29, PBR + SLA + Track
@@ -67,7 +67,7 @@
       cisco.ios.ios_config:
         lines:
           - description L3 link to SW29 (PBR ingress)
-          - ip address 10.7.100.2 255.255.255.252
+          - ip address 10.7.254.1 255.255.255.252
           - ip policy route-map PBR-VOLOGDA
           - no shutdown
         parents: interface Ethernet0/2
@@ -76,7 +76,7 @@
       when: inventory_hostname == 'R28'
       cisco.ios.ios_config:
         lines:
-          - ip route 10.7.10.0 255.255.255.0 10.7.100.1 name users-via-SW29
+          - ip route 10.7.10.0 255.255.255.0 10.7.254.0 name users-via-SW29
 
     - name: R28 - IP SLA 1 (probe ISP-1 = R25)
       when: inventory_hostname == 'R28'
