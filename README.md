@@ -212,7 +212,7 @@ otus_labs/
 ├── net.png                 # схема EVE-NG топологии
 │
 └── homework/               # домашки, по папке на задание
-    └── 02. PBR/            # PBR + IP SLA + Track + default route
+    └── 02.PBR/             # PBR + IP SLA + Track + default route
         ├── README.md       # постановка, дизайн, проверки, результаты
         └── pbr.yml         # плейбук для R28 + SW29 + R27
 ```
