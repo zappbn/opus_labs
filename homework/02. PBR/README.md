@@ -112,8 +112,8 @@ Mgmt-трафик **намеренно не пбрится**. Это золот�
 ```bash
 cd /root/otus_labs
 git pull
-ansible-playbook homework/pbr/pbr.yml --check --diff -v   # plan
-ansible-playbook homework/pbr/pbr.yml                      # apply
+ansible-playbook "homework/02. PBR/pbr.yml" --check --diff -v   # plan
+ansible-playbook "homework/02. PBR/pbr.yml"                      # apply
 ```
 
 После apply на устройствах будут все блоки конфигурации (PBR/SLA/Track/ACL/route-map на R28, SVI Vlan10 + routed-port на SW29, default route на R27). `save_when: modified` обеспечивает сохранение в startup-config.
